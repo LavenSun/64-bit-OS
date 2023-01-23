@@ -45,5 +45,77 @@ sti
 mov word [SectorNo],
 SectorNumOfRootDirStart
 
-jmp
-Lable_Search_In_Root_Dir_Begin
+jmp Lable_Search_In_Root_Dir_Begin
+
+Label_No_LoaderBin:
+    mov bp, NoLoaderMessage
+    int 10h
+    jmp $
+
+Label_FileName_Found:
+    mov ax, RootDirSectors
+    and di, 0FFE0h
+    add di, 01Ah
+    mov cx, word [ex:di]
+    push cx
+    add cx, ax
+    add cx, SectorBalance
+    mov eax, BaseTmpOfKernalAddr
+    mov es, eax
+    mov bx, OffsetTmpOfKernelFile
+    mov ax, cx
+
+Label_Go_On_Loading_File:
+    mov cl, 1
+    call Func_ReadOneSector
+    pop ax
+    push cx
+    push eax
+    push fs
+    push edi
+    push ds
+    push esi
+
+    mov cx, 200h
+    mov ax, BaseOfKernelFile
+    mov fs, ax
+    mov edi, dword [OffsetOfKernelFile]
+    mov ax, BaseTmpOfKernalAddr
+    mov ds, ax
+    mov esi, OffsetTmpOfKernelFile
+
+Label_Mov_Kernel:
+    mov al, byte [ds:esi]
+    mov byte [fs:edi], al
+    inc esi
+    inc edi
+
+    loop Label_Mov_Kernel
+
+    mov eax, 0x1000
+    mov ds, eax
+
+    mov dword [OffsetOfKernelFileCount], edi
+
+    pop esi
+    pop ds
+    pop edi
+    pop fs
+    pop eax
+    pop cx
+
+    call Func_GetFATEntry
+    jmp Label_Go_On_Loading_File
+
+Label_File_Loaded:
+    mov ax, 0B800h
+    mov gs, ax
+    mov ah, 0Fh
+    mov [gs:((80 * 0 + 39) * 2)], ax
+
+KillMotor:
+    push dx
+    mov dx, 03F2h
+    mov al, 0
+    out dx, al
+    pop dx
